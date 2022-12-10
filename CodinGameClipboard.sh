@@ -1,2 +1,2 @@
 #!/bin/bash
-java -jar CodinGameClipboard.jar -m src/main/java
+java -jar CodinGameClipboard.jar -m src/main/java | xclip
