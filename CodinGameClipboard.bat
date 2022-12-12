@@ -1,1 +1,1 @@
-java -jar CodinGameClipboard.jar -m src\main\java | clip.exe
+java -jar CodinGameClipboard.jar src\main\java | clip.exe
