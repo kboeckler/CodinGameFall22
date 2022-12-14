@@ -1,3 +1,6 @@
+import java.util.*;
+import java.util.stream.Collectors;
+
 class Cell {
 
   private final Player owner;
@@ -65,5 +68,25 @@ class Cell {
 
   public boolean isInRangeOfRecycler() {
     return inRangeOfRecycler;
+  }
+
+  public Collection<Cell> getNeighbors(Map<Pos, Cell> cells) {
+    List<Pos> neighbors = new ArrayList<>();
+    neighbors.add(Pos.of(pos.getX() + 1, pos.getY()));
+    neighbors.add(Pos.of(pos.getX() - 1, pos.getY()));
+    neighbors.add(Pos.of(pos.getX(), pos.getY() + 1));
+    neighbors.add(Pos.of(pos.getX(), pos.getY() - 1));
+    return neighbors.stream()
+        .map(npos -> cells.get(npos))
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
+  }
+
+  public boolean isGrass() {
+    return scrapAmount == 0;
+  }
+
+  public boolean isNotGrass() {
+    return scrapAmount > 0;
   }
 }

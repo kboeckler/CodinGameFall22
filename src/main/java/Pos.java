@@ -33,4 +33,8 @@ class Pos {
   public int hashCode() {
     return Objects.hash(x, y);
   }
+
+  public double dist2To(Pos from) {
+    return Math.pow(getX() - from.getX(), 2) + Math.pow(getY() - from.getY(), 2);
+  }
 }

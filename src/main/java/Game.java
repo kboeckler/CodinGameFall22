@@ -17,17 +17,50 @@ class Game {
   }
 
   List<Action> findNextActions() {
-    return Stream.concat(findBuildActions(), findMoveActions().stream())
+    return Stream.concat(findMatterActions(), findMoveActions().stream())
         .collect(Collectors.toList());
+  }
+
+  private Stream<Action> findMatterActions() {
+    List<ActionBuildRecycler> buildActions = findBuildActions().collect(Collectors.toList());
+    int matter = players.get(0).getMatter() - buildActions.size() * 10;
+    Stream<ActionSpawn> actionSpawnStream =
+        map.values().stream()
+            .filter(Cell::isCanSpawn)
+            .sorted(
+                (one, another) ->
+                    (int)
+                        (another.getNeighbors(map).stream()
+                                .filter(Cell::isNotGrass)
+                                .filter(n -> !players.get(0).equals(n.getOwner()))
+                                .count()
+                            - one.getNeighbors(map).stream()
+                                .filter(Cell::isNotGrass)
+                                .filter(n -> !players.get(0).equals(n.getOwner()))
+                                .count()))
+            .limit(matter / 10)
+            .map(cell -> new ActionSpawn(1, cell.getPos()));
+    return Stream.concat(buildActions.stream(), actionSpawnStream);
   }
 
   private Stream<ActionBuildRecycler> findBuildActions() {
     int matter = players.get(0).getMatter();
     Set<Pos> cellsBuilding = new HashSet<>();
     for (Cell cell : map.values()) {
-      if (cell.isCanBuild() && matter >= 10 && !cellsBuilding.contains(cell.getPos())) {
-        cellsBuilding.add(cell.getPos());
-        matter -= 10;
+      if (cell.isCanBuild() && matter >= 10 /* && !cellsBuilding.contains(cell.getPos())*/) {
+        if (Stream.concat(Stream.of(cell), cell.getNeighbors(map).stream())
+                .filter(c -> c.getScrapAmount() >= 4)
+                .filter(c -> !c.isInRangeOfRecycler())
+                .filter(
+                    c ->
+                        c.getNeighbors(map).stream()
+                            .map(Cell::getPos)
+                            .noneMatch(cellsBuilding::contains))
+                .count()
+            == 5) {
+          cellsBuilding.add(cell.getPos());
+          matter -= 10;
+        }
       }
     }
     return cellsBuilding.stream().map(ActionBuildRecycler::new);
@@ -41,31 +74,32 @@ class Game {
         unitsPerPos.put(cell.getPos(), cell.getUnits());
       }
     }
-    List<Map.Entry<Pos, Integer>> availableUnits = new LinkedList<>();
-    unitsPerPos.entrySet().forEach(availableUnits::add);
     Set<Pos> cellsMoving = new HashSet<>();
-    // First loop looks for owner == null
-    for (Cell cell : map.values()) {
-      if (availableUnits.isEmpty()) {
-        break;
-      }
-      if (cell.getOwner() == null && !cellsMoving.contains(cell.getPos())) {
-        Map.Entry<Pos, Integer> nextMover = availableUnits.get(0);
-        availableUnits.remove(0);
-        cellsMoving.add(cell.getPos());
-        moves.add(new ActionMove(nextMover.getValue(), nextMover.getKey(), cell.getPos()));
-      }
-    }
-    // Second loop looks for owner == opp
-    for (Cell cell : map.values()) {
-      if (availableUnits.isEmpty()) {
-        break;
-      }
-      if (players.get(1).equals(cell.getOwner()) && !cellsMoving.contains(cell.getPos())) {
-        Map.Entry<Pos, Integer> nextMover = availableUnits.get(0);
-        availableUnits.remove(0);
-        cellsMoving.add(cell.getPos());
-        moves.add(new ActionMove(nextMover.getValue(), nextMover.getKey(), cell.getPos()));
+    for (Map.Entry<Pos, Integer> units : unitsPerPos.entrySet()) {
+      for (int i = 0; i < units.getValue(); i++) {
+        Pos from = units.getKey();
+        Pos closest = null;
+        double minDist2 = Double.MAX_VALUE;
+        for (Cell cell : map.values()) {
+          if (cellsMoving.contains(cell.getPos())) {
+            continue;
+          }
+          if (cell.isGrass()) {
+            continue;
+          }
+          if (players.get(0).equals(cell.getOwner())) {
+            continue;
+          }
+          double d2 = cell.getPos().dist2To(from);
+          if (d2 < minDist2) {
+            minDist2 = d2;
+            closest = cell.getPos();
+          }
+        }
+        if (closest != null) {
+          cellsMoving.add(closest);
+          moves.add(new ActionMove(1, from, closest));
+        }
       }
     }
     return moves;
