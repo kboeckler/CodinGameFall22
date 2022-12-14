@@ -77,31 +77,45 @@ class Game {
     Set<Pos> cellsMoving = new HashSet<>();
     for (Map.Entry<Pos, Integer> units : unitsPerPos.entrySet()) {
       for (int i = 0; i < units.getValue(); i++) {
+        Set<Pos> targetPositions = map.values().stream().filter(c -> !cellsMoving.contains(c.getPos()))
+                .filter(Cell::isNotGrass)
+                .filter(c -> !players.get(0).equals(c.getOwner())).map(Cell::getPos).collect(Collectors.toSet());
         Pos from = units.getKey();
-        Pos closest = null;
-        double minDist2 = Double.MAX_VALUE;
-        for (Cell cell : map.values()) {
-          if (cellsMoving.contains(cell.getPos())) {
-            continue;
-          }
-          if (cell.isGrass()) {
-            continue;
-          }
-          if (players.get(0).equals(cell.getOwner())) {
-            continue;
-          }
-          double d2 = cell.getPos().dist2To(from);
-          if (d2 < minDist2) {
-            minDist2 = d2;
-            closest = cell.getPos();
-          }
-        }
-        if (closest != null) {
-          cellsMoving.add(closest);
-          moves.add(new ActionMove(1, from, closest));
+        Optional<Pos> closest = findClosestCell(from, targetPositions, map);
+        if (closest.isPresent()) {
+          cellsMoving.add(closest.get());
+          moves.add(new ActionMove(1, from, closest.get()));
+        } else {
+          System.err.printf("Could not find a path from %d %d, target cells were %d%n", from.getX(), from.getY(), targetPositions.size());
         }
       }
     }
     return moves;
   }
+
+  private Optional<Pos> findClosestCell(Pos from, Set<Pos> targetPositions, Map<Pos, Cell> map) {
+    Set<Pos> visited = new HashSet<>();
+    List<Pos> openList = new LinkedList<>();
+    openList.add(from);
+    visited.add(from);
+    int distance = -1;
+    while (!openList.isEmpty()) {
+      distance++;
+      int breadth = openList.size();
+      for (int i = 0; i < breadth; i ++) {
+        Pos current = openList.remove(0);
+        if (targetPositions.contains(current)) {
+          return Optional.of(current);
+        }
+        for (Cell neighbor : map.get(current).getNeighbors(map)) {
+          if (neighbor.isNotGrass() && !visited.contains(neighbor.getPos())) {
+            openList.add(neighbor.getPos());
+            visited.add(neighbor.getPos());
+          }
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
 }
